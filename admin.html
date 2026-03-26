@@ -1,0 +1,2334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BASH Admin — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+<style>
+/* ── VARIABLES & RESET ─────────────────────────────────── */
+:root {
+  --black:      #0a0a0a;
+  --bg:         #0d0d0d;
+  --panel:      #111;
+  --panel2:     #141414;
+  --border:     rgba(255,255,255,0.08);
+  --border2:    rgba(255,255,255,0.05);
+  --off-white:  #f0ece4;
+  --cream:      #e8e0d0;
+  --red:        #d63c2f;
+  --orange:     #e8703a;
+  --gray:       #7a7570;
+  --light-gray: #c8c0b0;
+  --green:      #2d6a4f;
+  --green-light:#4caf85;
+  --yellow:     #f0c040;
+  --blue:       #4a90d9;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--off-white);
+  font-family: 'DM Mono', monospace;
+  cursor: default;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+button { cursor: pointer; }
+input, select, textarea { cursor: text; }
+
+/* ── LOGIN SCREEN ──────────────────────────────────────── */
+#loginScreen {
+  position: fixed; inset: 0;
+  background: var(--black);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.login-box {
+  width: 420px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  padding: 48px 44px 52px;
+  animation: fadeInUp 0.5s ease both;
+}
+@keyframes fadeInUp {
+  from { opacity:0; transform: translateY(24px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.login-logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 40px;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.login-logo span { color: var(--red); }
+.login-subtitle {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: 40px;
+  display: flex; align-items: center; gap: 8px;
+}
+.login-subtitle::before { content: ''; width: 20px; height: 1px; background: var(--red); }
+.login-field { margin-bottom: 20px; }
+.login-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gray);
+  display: block;
+  margin-bottom: 10px;
+}
+.login-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--off-white);
+  padding: 13px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+  letter-spacing: 0.04em;
+}
+.login-input:focus { border-color: var(--red); background: rgba(255,255,255,0.06); }
+.login-input.error { border-color: var(--red) !important; }
+.login-input-wrap { position: relative; }
+.toggle-pw {
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--gray); font-size: 14px;
+  cursor: pointer; padding: 0;
+  transition: color 0.2s;
+}
+.toggle-pw:hover { color: var(--off-white); }
+.login-error {
+  font-size: 10px;
+  color: var(--red);
+  letter-spacing: 0.1em;
+  margin-top: 10px;
+  display: none;
+  padding: 10px 14px;
+  background: rgba(214,60,47,0.08);
+  border: 1px solid rgba(214,60,47,0.2);
+}
+.login-error.show { display: block; }
+.field-err {
+  font-size: 9px;
+  color: var(--red);
+  letter-spacing: 0.1em;
+  margin-top: 6px;
+  display: none;
+}
+.field-err.show { display: block; }
+.login-btn {
+  width: 100%;
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 28px;
+  transition: background 0.2s, transform 0.1s;
+}
+.login-btn:hover { background: var(--orange); transform: translateY(-1px); }
+.login-btn:active { transform: translateY(0); }
+.login-btn.loading { opacity: 0.7; pointer-events: none; }
+.login-note {
+  font-size: 9px;
+  color: var(--gray);
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin-top: 18px;
+}
+
+/* ── DASHBOARD LAYOUT ──────────────────────────────────── */
+#dashboard { display: none; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: 220px;
+  height: 100vh;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo-text {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.05em;
+}
+.sidebar-logo-text span { color: var(--red); }
+.sidebar-badge {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-top: 4px;
+}
+.sidebar-nav { flex: 1; padding: 16px 0; }
+.nav-section-label {
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--gray);
+  padding: 16px 24px 8px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gray);
+  border-left: 2px solid transparent;
+  position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--off-white); }
+.nav-item.active { background: rgba(214,60,47,0.08); color: var(--off-white); border-left-color: var(--red); }
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: white;
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+.sidebar-footer {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+.admin-user {
+  display: flex; gap: 10px; align-items: center;
+  margin-bottom: 14px;
+}
+.admin-avatar {
+  width: 32px; height: 32px;
+  background: var(--red);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0;
+  flex-shrink: 0;
+}
+.admin-name  { font-size: 11px; color: var(--off-white); letter-spacing: 0.06em; }
+.admin-email { font-size: 9px; color: var(--gray); letter-spacing: 0.06em; margin-top: 2px; }
+.logout-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--gray);
+  padding: 9px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* MAIN CONTENT */
+.main { margin-left: 220px; min-height: 100vh; }
+
+/* TOPBAR */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-left h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.05em;
+}
+.topbar-left p { font-size: 10px; color: var(--gray); letter-spacing: 0.1em; margin-top: 2px; }
+.topbar-right { display: flex; gap: 12px; align-items: center; }
+.topbar-search {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--off-white);
+  padding: 9px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  width: 260px;
+  letter-spacing: 0.06em;
+  transition: border-color 0.2s;
+}
+.topbar-search:focus { border-color: var(--red); }
+.topbar-search::placeholder { color: var(--gray); }
+.topbar-btn {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 9px 18px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.topbar-btn:hover { background: var(--orange); }
+
+/* ── VIEWS ─────────────────────────────────────────────── */
+.view { display: none; padding: 36px 40px 64px; }
+.view.active { display: block; }
+
+/* ── STAT CARDS ────────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.stat-card {
+  padding: 28px 24px;
+  border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card:last-child { border-right: none; }
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0;
+  width: 3px; height: 100%;
+}
+.stat-card.revenue::before { background: var(--green-light); }
+.stat-card.orders::before  { background: var(--blue); }
+.stat-card.pending::before { background: var(--yellow); }
+.stat-card.dispatch::before{ background: var(--red); }
+.stat-label  { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray); margin-bottom: 12px; }
+.stat-value  { font-family: 'Bebas Neue', sans-serif; font-size: 40px; letter-spacing: 0.02em; line-height: 1; margin-bottom: 8px; }
+.stat-change { font-size: 10px; letter-spacing: 0.1em; }
+.stat-change.up   { color: var(--green-light); }
+.stat-change.down { color: var(--red); }
+
+/* ── TABLE / ORDER GRID ────────────────────────────────── */
+.section-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+.section-bar h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.06em;
+}
+.filter-tabs { display: flex; gap: 0; }
+.filter-tab {
+  padding: 8px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-right: none;
+  color: var(--gray);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-tab:last-child { border-right: 1px solid var(--border); }
+.filter-tab:hover  { background: rgba(255,255,255,0.04); color: var(--off-white); }
+.filter-tab.active { background: var(--red); border-color: var(--red); color: white; }
+
+/* Order Table */
+.orders-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); }
+.orders-table th {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gray);
+  padding: 13px 16px;
+  text-align: left;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.orders-table td {
+  padding: 14px 16px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border2);
+  vertical-align: middle;
+}
+.orders-table tr:last-child td { border-bottom: none; }
+.orders-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+.order-id { font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.08em; color: var(--off-white); }
+.customer-cell { display: flex; flex-direction: column; gap: 3px; }
+.customer-name { font-size: 12px; color: var(--off-white); letter-spacing: 0.04em; }
+.customer-phone { font-size: 10px; color: var(--gray); letter-spacing: 0.06em; }
+.items-cell { font-size: 10px; color: var(--light-gray); letter-spacing: 0.04em; line-height: 1.6; max-width: 180px; }
+.amount-cell { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; }
+.date-cell { font-size: 10px; color: var(--gray); letter-spacing: 0.06em; }
+
+/* Status badge + dropdown */
+.status-wrap { position: relative; display: inline-block; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+.status-badge:hover { opacity: 0.85; }
+.status-badge.pending   { background: rgba(240,192,64,0.12); border-color: rgba(240,192,64,0.3); color: var(--yellow); }
+.status-badge.processing{ background: rgba(74,144,217,0.12); border-color: rgba(74,144,217,0.3); color: var(--blue); }
+.status-badge.shipped   { background: rgba(232,112,58,0.12); border-color: rgba(232,112,58,0.3); color: var(--orange); }
+.status-badge.delivered { background: rgba(76,175,133,0.12); border-color: rgba(76,175,133,0.3); color: var(--green-light); }
+.status-badge.cancelled { background: rgba(214,60,47,0.12); border-color: rgba(214,60,47,0.3); color: var(--red); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.status-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  min-width: 160px;
+  z-index: 200;
+  display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.status-dropdown.open { display: block; }
+.status-option {
+  padding: 10px 14px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  transition: background 0.15s;
+  border-bottom: 1px solid var(--border2);
+}
+.status-option:last-child { border-bottom: none; }
+.status-option:hover { background: rgba(255,255,255,0.05); }
+
+/* Action buttons in table */
+.action-btns { display: flex; gap: 6px; }
+.tbl-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--gray);
+  padding: 6px 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.tbl-btn:hover           { border-color: var(--off-white); color: var(--off-white); }
+.tbl-btn.danger:hover    { border-color: var(--red); color: var(--red); }
+.tbl-btn.primary         { background: var(--red); border-color: var(--red); color: white; }
+.tbl-btn.primary:hover   { background: var(--orange); border-color: var(--orange); }
+
+/* ── CUSTOMERS VIEW ────────────────────────────────────── */
+.customer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--border);
+}
+.customer-card {
+  padding: 24px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.customer-card:hover { background: rgba(255,255,255,0.02); }
+.cc-top { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.cc-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  color: var(--orange);
+  flex-shrink: 0;
+}
+.cc-name    { font-size: 13px; color: var(--off-white); letter-spacing: 0.04em; margin-bottom: 3px; }
+.cc-email   { font-size: 10px; color: var(--gray); letter-spacing: 0.06em; margin-bottom: 2px; }
+.cc-phone   { font-size: 10px; color: var(--gray); letter-spacing: 0.06em; }
+.cc-stats   { display: flex; gap: 0; border-top: 1px solid var(--border2); padding-top: 14px; }
+.cc-stat    { flex: 1; text-align: center; }
+.cc-stat + .cc-stat { border-left: 1px solid var(--border2); }
+.cc-stat-val   { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--off-white); display: block; }
+.cc-stat-label { font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray); }
+.cc-city       { font-size: 9px; letter-spacing: 0.12em; color: var(--orange); text-transform: uppercase; margin-top: 8px; }
+
+/* ── REVENUE CHARTS ────────────────────────────────────── */
+.revenue-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 0; border: 1px solid var(--border); margin-bottom: 32px; }
+.revenue-panel { padding: 28px 28px 24px; }
+.revenue-panel + .revenue-panel { border-left: 1px solid var(--border); }
+.panel-title { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray); margin-bottom: 20px; }
+.bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
+.bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.bar {
+  width: 100%;
+  background: var(--red);
+  min-height: 4px;
+  transition: height 0.6s ease;
+  position: relative;
+}
+.bar:hover { background: var(--orange); }
+.bar-label { font-size: 8px; color: var(--gray); letter-spacing: 0.1em; white-space: nowrap; }
+.top-products { display: flex; flex-direction: column; gap: 0; }
+.top-product-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border2);
+}
+.top-product-row:last-child { border-bottom: none; }
+.tp-rank { font-family: 'Bebas Neue', sans-serif; font-size: 20px; color: var(--gray); width: 20px; }
+.tp-name { flex: 1; font-size: 11px; letter-spacing: 0.06em; color: var(--off-white); }
+.tp-rev  { font-family: 'Bebas Neue', sans-serif; font-size: 16px; color: var(--green-light); }
+
+/* ── DISPATCH QUEUE ────────────────────────────────────── */
+.dispatch-item {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  transition: background 0.15s;
+}
+.dispatch-item:last-child { border-bottom: 1px solid var(--border); }
+.dispatch-item:hover { background: rgba(255,255,255,0.02); }
+.dispatch-item.urgent { border-left: 3px solid var(--red); }
+.dispatch-priority {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.dispatch-priority.high   { color: var(--red);   border-color: rgba(214,60,47,0.4); }
+.dispatch-priority.normal { color: var(--gray);  border-color: var(--border); }
+.dispatch-priority.express{ color: var(--orange); border-color: rgba(232,112,58,0.4); }
+.dispatch-order { flex: 1; }
+.dispatch-order-id   { font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.06em; margin-bottom: 2px; }
+.dispatch-customer   { font-size: 11px; color: var(--off-white); letter-spacing: 0.04em; margin-bottom: 2px; }
+.dispatch-address    { font-size: 10px; color: var(--gray); letter-spacing: 0.04em; }
+.dispatch-items-info { font-size: 10px; color: var(--light-gray); letter-spacing: 0.06em; min-width: 180px; }
+.dispatch-items-info strong { color: var(--off-white); display: block; margin-bottom: 2px; }
+.dispatch-amount { font-family: 'Bebas Neue', sans-serif; font-size: 20px; min-width: 80px; text-align: right; }
+.dispatch-actions { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── TOAST ─────────────────────────────────────────────── */
+#adminToast {
+  position: fixed; bottom: 32px; left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: #1a2e22; border: 1px solid var(--green);
+  color: var(--off-white); font-family: 'DM Mono', monospace;
+  font-size: 12px; letter-spacing: 0.1em;
+  padding: 14px 24px; z-index: 9000; opacity: 0;
+  transition: all 0.35s cubic-bezier(0.25,0.46,0.45,0.94);
+  white-space: nowrap; pointer-events: none;
+}
+#adminToast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── ORDER DETAIL MODAL ────────────────────────────────── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: all; }
+.modal-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  width: 600px; max-width: 96vw;
+  max-height: 90vh; overflow-y: auto;
+  animation: fadeInUp 0.25s ease both;
+}
+.modal-header {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.06em; }
+.modal-close {
+  background: none; border: 1px solid var(--border);
+  color: var(--off-white); width: 34px; height: 34px;
+  cursor: pointer; font-size: 14px; transition: all 0.15s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+.modal-body { padding: 24px 28px 32px; }
+.detail-row {
+  display: flex; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--border2);
+  font-size: 11px;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-key   { color: var(--gray); letter-spacing: 0.1em; text-transform: uppercase; font-size: 9px; }
+.detail-val   { color: var(--off-white); letter-spacing: 0.04em; text-align: right; }
+.detail-val.green { color: var(--green-light); }
+
+/* ── EMPTY STATE ───────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 80px 40px;
+  color: var(--gray);
+}
+.empty-icon  { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+.empty-title { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 0.06em; margin-bottom: 8px; color: var(--off-white); }
+.empty-desc  { font-size: 11px; letter-spacing: 0.06em; line-height: 1.7; }
+
+/* ── SCROLLBAR ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── RESPONSIVE ────────────────────────────────────────── */
+@media (max-width: 992px) {
+  .sidebar { width: 60px; }
+  .sidebar-logo, .nav-section-label, .nav-item span:not(.nav-icon),
+  .sidebar-badge, .admin-name, .admin-email { display: none; }
+  .nav-item { padding: 16px; justify-content: center; }
+  .nav-badge { position: absolute; top: 8px; right: 8px; }
+  .sidebar-footer { padding: 12px; }
+  .admin-user { justify-content: center; }
+  .logout-btn { font-size: 0; padding: 9px; }
+  .logout-btn::after { content: '↩'; font-size: 14px; }
+  .main { margin-left: 60px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-card:nth-child(2) { border-right: none; }
+  .stat-card:nth-child(3), .stat-card:nth-child(4) { border-top: 1px solid var(--border); }
+  .customer-grid { grid-template-columns: 1fr 1fr; }
+  .revenue-grid { grid-template-columns: 1fr; }
+  .revenue-panel + .revenue-panel { border-left: none; border-top: 1px solid var(--border); }
+}
+@media (max-width: 768px) {
+  .topbar { padding: 16px 20px; }
+  .topbar-search { width: 160px; }
+  .view { padding: 24px 20px 48px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .customer-grid { grid-template-columns: 1fr; }
+  .customer-card:nth-child(odd) { border-right: none; }
+  .orders-table th:nth-child(4),
+  .orders-table td:nth-child(4) { display: none; }
+}
+
+/* ── PRODUCTS VIEW ──────────────────────────────────────── */
+.products-admin-grid {
+  display: grid; grid-template-columns: repeat(2,1fr); gap:0;
+  border:1px solid var(--border);
+}
+.product-admin-card {
+  padding:24px; border-right:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  display:flex; gap:20px; align-items:flex-start;
+  transition: background 0.15s;
+}
+.product-admin-card:hover { background:rgba(255,255,255,0.02); }
+.product-admin-card:nth-child(even) { border-right:none; }
+.product-thumb-wrap {
+  width:88px; height:100px; flex-shrink:0; position:relative;
+  background:var(--panel2); border:1px solid var(--border);
+  overflow:hidden;
+}
+.product-thumb-wrap img {
+  width:100%;height:100%;object-fit:cover;display:block;
+  transition:transform 0.3s;
+}
+.product-admin-card:hover .product-thumb-wrap img { transform:scale(1.05); }
+.product-thumb-placeholder {
+  width:100%;height:100%;display:flex;align-items:center;
+  justify-content:center;font-size:28px;opacity:0.2;
+}
+.product-admin-info { flex:1; }
+.product-admin-name {
+  font-family:'Bebas Neue',sans-serif; font-size:18px;
+  letter-spacing:0.06em; margin-bottom:4px;
+}
+.product-admin-brand { font-size:9px;color:var(--orange);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px; }
+.product-admin-price { font-family:'Bebas Neue',sans-serif;font-size:22px; margin-bottom:10px; }
+.product-admin-price .old { font-size:13px;color:var(--gray);text-decoration:line-through;margin-right:6px; }
+.product-admin-meta { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px; }
+.product-meta-chip {
+  font-size:8px;letter-spacing:0.15em;text-transform:uppercase;
+  padding:3px 8px; border:1px solid var(--border);
+  color:var(--gray); background:rgba(255,255,255,0.03);
+}
+.product-admin-actions { display:flex;gap:8px; }
+
+/* Product Edit Modal */
+.prod-modal-overlay {
+  position:fixed;inset:0;background:rgba(0,0,0,0.88);
+  z-index:700;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+}
+.prod-modal-overlay.open { opacity:1;pointer-events:all; }
+.prod-modal-box {
+  background:var(--panel);border:1px solid var(--border);
+  width:680px;max-width:96vw;max-height:90vh;
+  display:flex;flex-direction:column;
+  animation:fadeInUp 0.25s ease both;
+}
+.prod-modal-header {
+  padding:22px 28px 18px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  flex-shrink:0;
+}
+.prod-modal-title { font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:0.06em; }
+.prod-modal-body { flex:1;overflow-y:auto;padding:24px 28px 20px; }
+.prod-modal-footer {
+  padding:16px 28px 24px;border-top:1px solid var(--border);
+  display:flex;gap:12px;flex-shrink:0;
+}
+
+.edit-field { margin-bottom:18px; }
+.edit-label {
+  font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--gray);display:block;margin-bottom:8px;
+}
+.edit-input, .edit-select, .edit-textarea {
+  width:100%;background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.12);
+  color:var(--off-white);padding:11px 14px;
+  font-family:'DM Mono',monospace;font-size:12px;outline:none;
+  transition:border-color 0.2s;letter-spacing:0.04em;
+}
+.edit-input:focus,.edit-select:focus,.edit-textarea:focus { border-color:var(--red); }
+.edit-textarea { min-height:72px;resize:vertical;line-height:1.6; }
+.edit-select option { background:#1a1a1a; }
+.edit-hint {
+  font-size:9px;color:var(--gray);letter-spacing:0.08em;
+  margin-top:5px;line-height:1.6;
+}
+.edit-hint code {
+  background:rgba(255,255,255,0.06);padding:1px 5px;
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--orange);
+}
+.edit-row { display:grid;grid-template-columns:1fr 1fr;gap:14px; }
+.img-preview-row {
+  display:flex;gap:12px;align-items:flex-start;margin-top:10px;
+}
+.img-preview-box {
+  width:80px;height:88px;background:var(--panel2);
+  border:1px solid var(--border);overflow:hidden;flex-shrink:0;
+}
+.img-preview-box img { width:100%;height:100%;object-fit:cover;display:block; }
+.gallery-grid-edit {
+  display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px;
+}
+.gallery-slot-edit {
+  aspect-ratio:1;background:var(--panel2);border:1px dashed rgba(255,255,255,0.15);
+  overflow:hidden;position:relative;
+}
+.gallery-slot-edit img { width:100%;height:100%;object-fit:cover;display:block; }
+.gallery-slot-num {
+  position:absolute;top:4px;left:4px;
+  font-size:8px;background:rgba(0,0,0,0.6);
+  padding:2px 5px;letter-spacing:0.1em;color:var(--gray);
+}
+.gallery-slot-placeholder {
+  width:100%;height:100%;display:flex;
+  align-items:center;justify-content:center;
+  font-size:20px;opacity:0.15;
+}
+
+/* Badge selector */
+.badge-options { display:flex;gap:8px;flex-wrap:wrap; }
+.badge-option {
+  padding:6px 14px;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;
+  border:1px solid var(--border);background:transparent;color:var(--gray);
+  cursor:pointer;transition:all 0.15s;font-family:'DM Mono',monospace;
+}
+.badge-option.selected { background:var(--red);border-color:var(--red);color:white; }
+.badge-option:hover:not(.selected) { border-color:var(--off-white);color:var(--off-white); }
+
+/* ── INVOICE ─────────────────────────────────────────────── */
+.invoice-overlay {
+  position:fixed;inset:0;background:rgba(0,0,0,0.92);
+  z-index:800;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+}
+.invoice-overlay.open { opacity:1;pointer-events:all; }
+.invoice-frame {
+  background:#fff;color:#111;
+  width:740px;max-width:96vw;max-height:92vh;
+  overflow-y:auto;
+  font-family:'DM Mono',monospace;
+}
+.invoice-controls {
+  position:sticky;top:0;background:rgba(0,0,0,0.95);
+  padding:12px 20px;display:flex;gap:10px;justify-content:flex-end;
+  border-bottom:1px solid rgba(255,255,255,0.1);z-index:10;
+}
+.inv-ctrl-btn {
+  background:var(--red);color:white;border:none;
+  padding:9px 20px;font-family:'DM Mono',monospace;
+  font-size:10px;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;
+  transition:background 0.2s;
+}
+.inv-ctrl-btn:hover { background:var(--orange); }
+.inv-ctrl-btn.ghost {
+  background:transparent;border:1px solid rgba(255,255,255,0.2);color:var(--light-gray);
+}
+.inv-ctrl-btn.ghost:hover { background:rgba(255,255,255,0.06); }
+
+/* Invoice document */
+.invoice-doc {
+  padding:48px 52px;background:#fff;color:#111;
+  font-family:'DM Mono',monospace;
+}
+.inv-header { display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px; }
+.inv-brand-logo {
+  font-family:'Bebas Neue',sans-serif;font-size:48px;
+  letter-spacing:0.05em;color:#111;line-height:1;
+}
+.inv-brand-logo span { color:#d63c2f; }
+.inv-brand-tagline { font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#888;margin-top:4px; }
+.inv-title-block { text-align:right; }
+.inv-title { font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.08em;color:#111; }
+.inv-number { font-size:11px;letter-spacing:0.12em;color:#555;margin-top:4px; }
+.inv-date   { font-size:10px;letter-spacing:0.1em;color:#888;margin-top:2px; }
+
+.inv-divider { border:none;border-top:2px solid #111;margin:24px 0 20px; }
+.inv-divider-light { border:none;border-top:1px solid #e5e5e5;margin:16px 0; }
+
+.inv-addresses { display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px; }
+.inv-addr-block {}
+.inv-addr-label { font-size:8px;letter-spacing:0.28em;text-transform:uppercase;color:#888;margin-bottom:8px; }
+.inv-addr-name  { font-size:14px;font-weight:500;color:#111;margin-bottom:3px; }
+.inv-addr-line  { font-size:11px;color:#444;letter-spacing:0.04em;line-height:1.7; }
+
+.inv-table { width:100%;border-collapse:collapse;margin-bottom:0; }
+.inv-table thead tr { background:#111;color:#fff; }
+.inv-table th {
+  font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
+  padding:11px 14px;text-align:left;font-weight:400;
+}
+.inv-table th:last-child,.inv-table td:last-child { text-align:right; }
+.inv-table td { padding:13px 14px;font-size:11px;color:#111;letter-spacing:0.04em; }
+.inv-table tbody tr { border-bottom:1px solid #e5e5e5; }
+.inv-table tbody tr:last-child { border-bottom:none; }
+.inv-table tbody tr:nth-child(even) { background:#fafafa; }
+.inv-item-name { font-size:12px;font-weight:500;color:#111;margin-bottom:2px; }
+.inv-item-variant { font-size:9px;color:#888;letter-spacing:0.1em;text-transform:uppercase; }
+
+.inv-totals { margin-left:auto;width:280px;margin-top:0; }
+.inv-total-row {
+  display:flex;justify-content:space-between;
+  padding:8px 0;border-bottom:1px solid #efefef;
+  font-size:11px;color:#444;letter-spacing:0.04em;
+}
+.inv-total-row:last-child { border-bottom:none; }
+.inv-total-row.subtotal { color:#111; }
+.inv-total-row.grand {
+  padding-top:12px;margin-top:4px;
+  border-top:2px solid #111;border-bottom:none;
+  font-size:14px;font-weight:500;color:#111;
+}
+.inv-total-row.grand .inv-total-amt {
+  font-family:'Bebas Neue',sans-serif;font-size:22px;color:#111;
+}
+.inv-total-label { color:inherit; }
+.inv-total-amt   { font-weight:500; }
+.inv-total-row.gst .inv-total-label { color:#888; }
+.inv-total-row.gst .inv-total-amt   { color:#888; }
+.inv-total-row.free .inv-total-amt  { color:#2d6a4f; }
+.inv-total-row.discount .inv-total-amt { color:#e8703a; }
+
+.inv-footer { margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5; }
+.inv-footer-grid { display:grid;grid-template-columns:1fr 1fr;gap:32px; }
+.inv-footer-label { font-size:8px;letter-spacing:0.25em;text-transform:uppercase;color:#888;margin-bottom:6px; }
+.inv-footer-val   { font-size:10px;color:#444;letter-spacing:0.05em;line-height:1.7; }
+.inv-footer-val strong { color:#111; }
+.inv-policy-note {
+  margin-top:24px;padding:14px 16px;
+  background:#fff3f3;border-left:3px solid #d63c2f;
+  font-size:9px;letter-spacing:0.06em;line-height:1.7;color:#555;
+}
+.inv-policy-note strong { color:#d63c2f; }
+.inv-watermark {
+  text-align:center;margin-top:32px;
+  font-family:'Bebas Neue',sans-serif;font-size:11px;
+  letter-spacing:0.3em;color:#ddd;text-transform:uppercase;
+}
+
+@media print {
+  .invoice-controls { display:none !important; }
+  .invoice-frame { max-height:none;overflow:visible; }
+  .invoice-doc { padding:32px; }
+  body > *:not(.invoice-overlay) { display:none !important; }
+  .invoice-overlay { background:white;position:static; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN SCREEN
+     ══════════════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">BA<span>SH</span></div>
+    <div class="login-subtitle">Admin Dashboard</div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginEmail">Email Address</label>
+      <input class="login-input" id="loginEmail" type="email"
+             placeholder="admin@email.com" autocomplete="email"
+             oninput="validateEmailField(this)">
+      <div class="field-err" id="emailFieldErr">Please enter a valid email address</div>
+    </div>
+
+    <div class="login-field">
+      <label class="login-label" for="loginPassword">Password</label>
+      <div class="login-input-wrap">
+        <input class="login-input" id="loginPassword" type="password"
+               placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter') doLogin()">
+        <button class="toggle-pw" onclick="togglePasswordVisibility()" id="togglePwBtn" title="Show/hide password">👁</button>
+      </div>
+      <div class="field-err" id="pwFieldErr">Password cannot be empty</div>
+    </div>
+
+    <div class="login-error" id="loginError">
+      ✗ Invalid email or password. Access denied.
+    </div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">
+      Sign In to Dashboard
+    </button>
+    <p class="login-note">🔒 Restricted access · BASH internal only</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     DASHBOARD
+     ══════════════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">BA<span>SH</span></div>
+      <div class="sidebar-badge">Admin Panel</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <div class="nav-item active" onclick="switchView('overview')">
+        <span class="nav-icon">⊞</span><span>Overview</span>
+      </div>
+      <div class="nav-item" onclick="switchView('orders')">
+        <span class="nav-icon">📦</span><span>Orders</span>
+        <span class="nav-badge" id="pendingBadge">0</span>
+      </div>
+      <div class="nav-item" onclick="switchView('dispatch')">
+        <span class="nav-icon">🚚</span><span>Dispatch Queue</span>
+      </div>
+      <div class="nav-section-label">Data</div>
+      <div class="nav-item" onclick="switchView('customers')">
+        <span class="nav-icon">👥</span><span>Customers</span>
+      </div>
+      <div class="nav-item" onclick="switchView('products')">
+        <span class="nav-icon">🛍</span><span>Products</span>
+      </div>
+      <div class="nav-item" onclick="switchView('revenue')">
+        <span class="nav-icon">₹</span><span>Revenue</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="admin-user">
+        <div class="admin-avatar">A</div>
+        <div>
+          <div class="admin-name">Arun</div>
+          <div class="admin-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="016a6f687575626d6e7569686f6641666c60686d2f626e6c">[email&#160;protected]</a></div>
+        </div>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1 id="viewTitle">Overview</h1>
+        <p id="viewSubtitle">Welcome back, Arun</p>
+      </div>
+      <div class="topbar-right">
+        <input class="topbar-search" id="globalSearch"
+               type="text" placeholder="🔍  Search orders, customers..."
+               oninput="globalSearchFn(this.value)">
+        <button class="topbar-btn" onclick="exportOrders()">↓ Export CSV</button>
+      </div>
+    </div>
+
+
+    <!-- ── VIEW: OVERVIEW ──────────────────────────────── -->
+    <div class="view active" id="view-overview">
+
+      <!-- Stat cards -->
+      <div class="stat-grid">
+        <div class="stat-card revenue">
+          <div class="stat-label">Total Revenue</div>
+          <div class="stat-value" id="statRevenue">₹0</div>
+          <div class="stat-change up" id="statRevChange">All time</div>
+        </div>
+        <div class="stat-card orders">
+          <div class="stat-label">Total Orders</div>
+          <div class="stat-value" id="statOrders">0</div>
+          <div class="stat-change up" id="statOrdersChange">+0 this week</div>
+        </div>
+        <div class="stat-card pending">
+          <div class="stat-label">Pending Orders</div>
+          <div class="stat-value" id="statPending">0</div>
+          <div class="stat-change" id="statPendingChange">Awaiting processing</div>
+        </div>
+        <div class="stat-card dispatch">
+          <div class="stat-label">Ready to Ship</div>
+          <div class="stat-value" id="statReady">0</div>
+          <div class="stat-change" id="statReadyChange">Packed & waiting</div>
+        </div>
+      </div>
+
+      <!-- Recent orders quick view -->
+      <div class="section-bar">
+        <h2>Recent Orders</h2>
+        <button class="tbl-btn primary" onclick="switchView('orders')">View All →</button>
+      </div>
+      <table class="orders-table" id="recentOrdersTable">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="recentOrdersTbody"></tbody>
+      </table>
+    </div>
+
+
+    <!-- ── VIEW: ALL ORDERS ─────────────────────────────── -->
+    <div class="view" id="view-orders">
+      <div class="section-bar">
+        <h2>All Orders</h2>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="filterOrders('all', this)">All</button>
+          <button class="filter-tab" onclick="filterOrders('pending', this)">Pending</button>
+          <button class="filter-tab" onclick="filterOrders('processing', this)">Processing</button>
+          <button class="filter-tab" onclick="filterOrders('shipped', this)">Shipped</button>
+          <button class="filter-tab" onclick="filterOrders('delivered', this)">Delivered</button>
+        </div>
+      </div>
+      <table class="orders-table" id="allOrdersTable">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Items</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="allOrdersTbody"></tbody>
+      </table>
+      <div class="empty-state" id="ordersEmpty" style="display:none;">
+        <div class="empty-icon">📦</div>
+        <div class="empty-title">No Orders Yet</div>
+        <div class="empty-desc">Orders placed through checkout<br>will appear here automatically.</div>
+      </div>
+    </div>
+
+
+    <!-- ── VIEW: DISPATCH QUEUE ─────────────────────────── -->
+    <div class="view" id="view-dispatch">
+      <div class="section-bar">
+        <h2>Dispatch Queue</h2>
+        <button class="tbl-btn primary" onclick="markAllShipped()">Mark All Shipped</button>
+      </div>
+      <div id="dispatchList"></div>
+      <div class="empty-state" id="dispatchEmpty" style="display:none;">
+        <div class="empty-icon">🚚</div>
+        <div class="empty-title">Queue Empty</div>
+        <div class="empty-desc">No orders ready to dispatch right now.</div>
+      </div>
+    </div>
+
+
+    <!-- ── VIEW: CUSTOMERS ──────────────────────────────── -->
+    <div class="view" id="view-customers">
+      <div class="section-bar">
+        <h2>Customers</h2>
+        <div style="display:flex;gap:10px;align-items:center;">
+        <input type="text" class="topbar-search" style="width:200px;"
+               placeholder="🔍  Search..."
+               oninput="searchCustomers(this.value)">
+        <button class="topbar-btn" onclick="syncFromSupabase()" style="background:rgba(74,144,217,0.8);">↓ Sync DB</button>
+      </div>
+      </div>
+      <div class="customer-grid" id="customerGrid"></div>
+      <div class="empty-state" id="customersEmpty" style="display:none;">
+        <div class="empty-icon">👥</div>
+        <div class="empty-title">No Customers Yet</div>
+        <div class="empty-desc">Customer profiles are built<br>from completed orders.</div>
+      </div>
+    </div>
+
+
+
+    <!-- ── VIEW: PRODUCTS ─────────────────────────────── -->
+    <div class="view" id="view-products">
+      <div class="section-bar">
+        <h2>Product Catalog</h2>
+        <div style="display:flex;gap:10px;">
+          <button class="topbar-btn" onclick="saveAllProducts()" style="background:var(--green);">✓ Save & Push to Store</button>
+          <button class="topbar-btn" onclick="resetCatalog()">↺ Reset to Default</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--gray);letter-spacing:0.08em;margin-bottom:20px;line-height:1.8;background:rgba(255,255,255,0.03);border:1px solid var(--border);padding:14px 18px;">
+        <strong style="color:var(--orange);">ℹ How this works:</strong> Edit any product below — name, price, images, badge, colors.
+        Click <strong style="color:var(--off-white);">Edit</strong> on a card, update the fields, then click
+        <strong style="color:var(--off-white);">Save & Push to Store</strong> — changes reflect on
+        <strong style="color:var(--off-white);">index.html</strong> immediately when the store is opened in the same browser.
+        To use your own product images, paste the image URL into the Image fields. Leave blank to use the placeholder.
+      </div>
+      <div class="products-admin-grid" id="productsAdminGrid"></div>
+
+      <!-- Hero selector -->
+      <div style="margin-top:24px;padding:20px 24px;border:1px solid var(--border);background:var(--panel);">
+        <div style="font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--gray);margin-bottom:12px;">Hero Product (shown in homepage spotlight)</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;" id="heroSelector"></div>
+      </div>
+    </div>
+
+    <!-- ── VIEW: REVENUE ────────────────────────────────── -->
+    <div class="view" id="view-revenue">
+      <div class="revenue-grid">
+        <div class="revenue-panel">
+          <div class="panel-title">Revenue by Week (Last 8)</div>
+          <div class="bar-chart" id="revenueChart"></div>
+        </div>
+        <div class="revenue-panel">
+          <div class="panel-title">Top Products</div>
+          <div class="top-products" id="topProducts"></div>
+        </div>
+      </div>
+      <div class="stat-grid" style="margin-bottom:0;">
+        <div class="stat-card revenue">
+          <div class="stat-label">Gross Revenue</div>
+          <div class="stat-value" id="revGross">₹0</div>
+          <div class="stat-change">All orders</div>
+        </div>
+        <div class="stat-card orders">
+          <div class="stat-label">Avg Order Value</div>
+          <div class="stat-value" id="revAOV">₹0</div>
+          <div class="stat-change">Per transaction</div>
+        </div>
+        <div class="stat-card pending">
+          <div class="stat-label">GST Collected</div>
+          <div class="stat-value" id="revGST">₹0</div>
+          <div class="stat-change">18% on all orders</div>
+        </div>
+        <div class="stat-card dispatch">
+          <div class="stat-label">Net Revenue</div>
+          <div class="stat-value" id="revNet">₹0</div>
+          <div class="stat-change">After GST</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+</div><!-- /#dashboard -->
+
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-backdrop" id="orderModal" onclick="if(event.target===this) closeOrderModal()">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <span class="modal-title" id="modalOrderId">BASH-2026-XXXXX</span>
+      <button class="modal-close" onclick="closeOrderModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+
+<!-- ── INVOICE OVERLAY ──────────────────────────────────── -->
+<div class="invoice-overlay" id="invoiceOverlay">
+  <div class="invoice-frame">
+    <div class="invoice-controls">
+      <button class="inv-ctrl-btn ghost" onclick="closeInvoice()">✕ Close</button>
+      <button class="inv-ctrl-btn ghost" onclick="window.print()">🖨 Print</button>
+      <button class="inv-ctrl-btn" onclick="downloadInvoicePDF()">↓ Download PDF</button>
+    </div>
+    <div class="invoice-doc" id="invoiceDoc"></div>
+  </div>
+</div>
+
+<!-- ── PRODUCT EDIT MODAL ────────────────────────────────── -->
+<div class="prod-modal-overlay" id="prodModalOverlay" onclick="if(event.target===this)closeProdModal()">
+  <div class="prod-modal-box">
+    <div class="prod-modal-header">
+      <span class="prod-modal-title" id="prodModalTitle">Edit Product</span>
+      <button class="modal-close" onclick="closeProdModal()">✕</button>
+    </div>
+    <div class="prod-modal-body" id="prodModalBody"></div>
+    <div class="prod-modal-footer">
+      <button class="topbar-btn" style="flex:1;" onclick="saveProdFromModal()">✓ Save Changes</button>
+      <button class="tbl-btn" style="padding:10px 20px;" onclick="closeProdModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="adminToast"></div>
+
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+     ══════════════════════════════════════════════ -->
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+
+/* ── AUTH ────────────────────────────────────────────────── */
+
+const ADMIN_EMAIL    = 'knittclothing@gmail.com';
+const ADMIN_PASSWORD = 'Arun_2005';
+const SESSION_KEY    = 'bash_admin_session';
+
+function validateEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+function validateEmailField(input) {
+  const err = document.getElementById('emailFieldErr');
+  if (input.value && !validateEmail(input.value)) {
+    input.classList.add('error');
+    err.classList.add('show');
+  } else {
+    input.classList.remove('error');
+    err.classList.remove('show');
+  }
+}
+
+function togglePasswordVisibility() {
+  const pw  = document.getElementById('loginPassword');
+  const btn = document.getElementById('togglePwBtn');
+  if (pw.type === 'password') { pw.type = 'text'; btn.textContent = '🙈'; }
+  else                        { pw.type = 'password'; btn.textContent = '👁'; }
+}
+
+function doLogin() {
+  const emailInput = document.getElementById('loginEmail');
+  const pwInput    = document.getElementById('loginPassword');
+  const emailErr   = document.getElementById('emailFieldErr');
+  const pwErr      = document.getElementById('pwFieldErr');
+  const loginErr   = document.getElementById('loginError');
+  const btn        = document.getElementById('loginBtn');
+
+  // Clear previous errors
+  loginErr.classList.remove('show');
+  emailInput.classList.remove('error');
+  pwInput.classList.remove('error');
+  emailErr.classList.remove('show');
+  pwErr.classList.remove('show');
+
+  let valid = true;
+
+  // Email validation
+  if (!emailInput.value.trim()) {
+    emailInput.classList.add('error');
+    emailErr.textContent = 'Email address is required';
+    emailErr.classList.add('show');
+    valid = false;
+  } else if (!validateEmail(emailInput.value)) {
+    emailInput.classList.add('error');
+    emailErr.textContent = 'Please enter a valid email address (e.g. name@domain.com)';
+    emailErr.classList.add('show');
+    valid = false;
+  }
+
+  // Password validation
+  if (!pwInput.value.trim()) {
+    pwInput.classList.add('error');
+    pwErr.textContent = 'Password is required';
+    pwErr.classList.add('show');
+    valid = false;
+  }
+
+  if (!valid) return;
+
+  // Simulate loading
+  btn.textContent = 'Verifying...';
+  btn.classList.add('loading');
+
+  setTimeout(() => {
+    btn.textContent = 'Sign In to Dashboard';
+    btn.classList.remove('loading');
+
+    if (emailInput.value.trim().toLowerCase() === ADMIN_EMAIL &&
+        pwInput.value === ADMIN_PASSWORD) {
+      // Save session
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        email: ADMIN_EMAIL,
+        loginTime: Date.now()
+      }));
+      enterDashboard();
+    } else {
+      loginErr.classList.add('show');
+      emailInput.classList.add('error');
+      pwInput.classList.add('error');
+      // Shake animation
+      document.querySelector('.login-box').style.animation = 'none';
+      setTimeout(() => {
+        document.querySelector('.login-box').style.animation = '';
+      }, 10);
+    }
+  }, 600);
+}
+
+function doLogout() {
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginError').classList.remove('show');
+}
+
+function enterDashboard() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  loadDashboard();
+}
+
+// Auto-login if session exists
+(function checkSession() {
+  const session = localStorage.getItem(SESSION_KEY);
+  if (session) {
+    const { loginTime } = JSON.parse(session);
+    // Session valid for 12 hours
+    if (Date.now() - loginTime < 12 * 60 * 60 * 1000) {
+      enterDashboard();
+      return;
+    }
+  }
+  // Show login
+  document.getElementById('loginScreen').style.display = 'flex';
+})();
+
+
+/* ── DATA LAYER ──────────────────────────────────────────── */
+
+const ORDERS_KEY = 'bash_orders';
+
+// Seed demo orders if store is empty
+function seedDemoOrders() {
+  const existing = getOrders();
+  if (existing.length > 0) return;
+
+  const demo = [
+    {
+      id: 'BASH-2026-K4R7MZ', name: 'Arjun Sharma', email: 'arjun.sharma@gmail.com',
+      phone: '9876543210', address: 'Flat 12B, Connaught Place', city: 'New Delhi',
+      state: 'Delhi', pincode: '110001', items: 'Void Oversized Hoodie (M, Black) × 1',
+      subtotal: 3499, gst: 630, delivery: 0, total: 4129,
+      method: 'upi', status: 'pending', date: new Date(Date.now()-2*3600000).toISOString(),
+      paymentId: 'pay_demo001', points: 34
+    },
+    {
+      id: 'BASH-2026-P9XQ22', name: 'Priya Mehta', email: 'priya.m@outlook.com',
+      phone: '9812345678', address: '23, Koramangala 5th Block', city: 'Bangalore',
+      state: 'Karnataka', pincode: '560034', items: 'Dead Drop Heavy Tee (L, Off-White) × 2, Noise Baggy Cargo (32, Olive) × 1',
+      subtotal: 5397, gst: 971, delivery: 0, total: 6368,
+      method: 'razorpay', status: 'processing', date: new Date(Date.now()-26*3600000).toISOString(),
+      paymentId: 'pay_demo002', points: 53
+    },
+    {
+      id: 'BASH-2026-T2LN09', name: 'Rahul Kumar', email: 'rahulk93@yahoo.com',
+      phone: '9988776655', address: '7, Bandra West, Hill Road', city: 'Mumbai',
+      state: 'Maharashtra', pincode: '400050', items: 'Void Oversized Hoodie (XL, Acid Green) × 1',
+      subtotal: 3499, gst: 630, delivery: 99, total: 4228,
+      method: 'cod', status: 'shipped', date: new Date(Date.now()-3*24*3600000).toISOString(),
+      paymentId: null, points: 34
+    },
+    {
+      id: 'BASH-2026-YM3F88', name: 'Sneha Reddy', email: 'snehareddy@gmail.com',
+      phone: '9001234567', address: '45, Jubilee Hills', city: 'Hyderabad',
+      state: 'Telangana', pincode: '500033', items: 'Raw Edge Acid Hoodie (M, Black) × 1, Dead Drop Heavy Tee (M, Washed Grey) × 3',
+      subtotal: 7896, gst: 1421, delivery: 0, total: 9317,
+      method: 'card', status: 'delivered', date: new Date(Date.now()-7*24*3600000).toISOString(),
+      paymentId: 'pay_demo004', points: 78
+    },
+    {
+      id: 'BASH-2026-ZD5K11', name: 'Vikram Singh', email: 'vikram.singh@proton.me',
+      phone: '8800123456', address: 'C-14, Sector 18, Noida', city: 'Noida',
+      state: 'Uttar Pradesh', pincode: '201301', items: 'Noise Baggy Cargo (34, Khaki) × 1, Dead Drop Heavy Tee (L, Black) × 2',
+      subtotal: 5397, gst: 971, delivery: 0, total: 6368,
+      method: 'upi', status: 'pending', date: new Date(Date.now()-1*3600000).toISOString(),
+      paymentId: 'pay_demo005', points: 53
+    },
+    {
+      id: 'BASH-2026-QF7H44', name: 'Ananya Iyer', email: 'ananya.iyer@gmail.com',
+      phone: '7799881234', address: '88, Anna Nagar West', city: 'Chennai',
+      state: 'Tamil Nadu', pincode: '600040', items: 'Void Oversized Hoodie (S, Void Black) × 2',
+      subtotal: 6998, gst: 1260, delivery: 199, total: 8457,
+      method: 'razorpay', status: 'processing', date: new Date(Date.now()-18*3600000).toISOString(),
+      paymentId: 'pay_demo006', points: 69
+    },
+  ];
+
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(demo));
+}
+
+function getOrders() {
+  try {
+    return JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveOrders(orders) {
+  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+}
+
+function updateOrderStatus(orderId, newStatus) {
+  const orders = getOrders();
+  const order  = orders.find(o => o.id === orderId);
+  if (order) {
+    order.status = newStatus;
+    saveOrders(orders);
+    toast(`✓ Order ${orderId} → ${newStatus.toUpperCase()}`);
+    loadDashboard();
+  }
+}
+
+function deleteOrder(orderId) {
+  if (!confirm(`Delete order ${orderId}? This cannot be undone.`)) return;
+  const orders = getOrders().filter(o => o.id !== orderId);
+  saveOrders(orders);
+  toast('✗ Order deleted');
+  loadDashboard();
+}
+
+function formatINR(n) { return Number(n).toLocaleString('en-IN'); }
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+
+function formatDateShort(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short' });
+}
+
+
+/* ── RENDER HELPERS ──────────────────────────────────────── */
+
+function statusBadgeHTML(orderId, currentStatus) {
+  const labels = { pending:'Pending', processing:'Processing', shipped:'Shipped', delivered:'Delivered', cancelled:'Cancelled' };
+  const icons  = { pending:'🕐', processing:'⚙', shipped:'🚚', delivered:'✓', cancelled:'✗' };
+  return `
+    <div class="status-wrap" id="sw-${orderId}">
+      <div class="status-badge ${currentStatus}" onclick="toggleStatusDropdown('${orderId}')">
+        <span class="status-dot"></span>${labels[currentStatus] || currentStatus}
+      </div>
+      <div class="status-dropdown" id="sd-${orderId}">
+        ${Object.entries(labels).map(([k,v])=>
+          `<div class="status-option" onclick="changeStatus('${orderId}','${k}')">
+            <span>${icons[k]}</span>${v}
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function toggleStatusDropdown(orderId) {
+  const dd = document.getElementById('sd-' + orderId);
+  const isOpen = dd.classList.contains('open');
+  // Close all others
+  document.querySelectorAll('.status-dropdown.open').forEach(d => d.classList.remove('open'));
+  if (!isOpen) dd.classList.add('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.status-wrap')) {
+    document.querySelectorAll('.status-dropdown.open').forEach(d => d.classList.remove('open'));
+  }
+});
+
+function changeStatus(orderId, newStatus) {
+  document.querySelectorAll('.status-dropdown.open').forEach(d => d.classList.remove('open'));
+  updateOrderStatus(orderId, newStatus);
+}
+
+function renderOrderRow(order, tbody) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="order-id">${order.id}</span></td>
+    <td><div class="customer-cell">
+      <span class="customer-name">${order.name}</span>
+      <span class="customer-phone">+91 ${order.phone}</span>
+    </div></td>
+    <td><div class="items-cell">${order.items}</div></td>
+    <td><span class="amount-cell">₹${formatINR(order.total)}</span></td>
+    <td><span class="date-cell">${formatDate(order.date)}</span></td>
+    <td>${statusBadgeHTML(order.id, order.status)}</td>
+    <td><div class="action-btns">
+      <button class="tbl-btn primary" onclick="openOrderModal('${order.id}')">View</button>
+      <button class="tbl-btn" onclick="openInvoice('${order.id}')">Invoice</button>
+      <button class="tbl-btn danger"  onclick="deleteOrder('${order.id}')">✕</button>
+    </div></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+/* ── LOAD DASHBOARD ──────────────────────────────────────── */
+
+let currentFilter = 'all';
+
+function loadDashboard() {
+  seedDemoOrders();
+  const orders = getOrders();
+
+  // Stats
+  const total     = orders.length;
+  const revenue   = orders.reduce((s,o) => s + o.total, 0);
+  const pending   = orders.filter(o => o.status === 'pending').length;
+  const readyShip = orders.filter(o => o.status === 'processing').length;
+
+  document.getElementById('statRevenue').textContent    = '₹' + formatINR(revenue);
+  document.getElementById('statOrders').textContent     = total;
+  document.getElementById('statPending').textContent    = pending;
+  document.getElementById('statReady').textContent      = readyShip;
+  document.getElementById('pendingBadge').textContent   = pending;
+
+  // Recent orders (last 5)
+  const recent = [...orders].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0,5);
+  const recentTbody = document.getElementById('recentOrdersTbody');
+  recentTbody.innerHTML = '';
+  recent.forEach(o => renderOrderRow(o, recentTbody));
+
+  // All orders
+  renderAllOrders(currentFilter);
+
+  // Dispatch queue
+  renderDispatch();
+
+  // Customers
+  renderCustomers();
+
+  // Revenue
+  renderRevenue(orders);
+  // Products
+  if (document.getElementById('productsAdminGrid')) renderProductsView();
+}
+
+function renderAllOrders(filter) {
+  let orders = getOrders();
+  if (filter && filter !== 'all') orders = orders.filter(o => o.status === filter);
+  orders.sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  const tbody = document.getElementById('allOrdersTbody');
+  tbody.innerHTML = '';
+  orders.forEach(o => renderOrderRow(o, tbody));
+
+  document.getElementById('ordersEmpty').style.display = orders.length === 0 ? 'block' : 'none';
+  document.querySelector('#allOrdersTable').style.display = orders.length === 0 ? 'none' : 'table';
+}
+
+function renderDispatch() {
+  const orders  = getOrders().filter(o => o.status === 'processing')
+                              .sort((a,b) => new Date(a.date)-new Date(b.date));
+  const list    = document.getElementById('dispatchList');
+  const empty   = document.getElementById('dispatchEmpty');
+  list.innerHTML = '';
+
+  if (orders.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  orders.forEach(o => {
+    const isExpress = o.delivery > 0;
+    const ageHours  = (Date.now() - new Date(o.date)) / 3600000;
+    const isUrgent  = ageHours > 24;
+    const priority  = isExpress ? 'express' : isUrgent ? 'high' : 'normal';
+    const pLabel    = isExpress ? '⚡ Express' : isUrgent ? '🔴 Urgent' : 'Normal';
+
+    const div = document.createElement('div');
+    div.className = 'dispatch-item' + (isUrgent ? ' urgent' : '');
+    div.innerHTML = `
+      <div class="dispatch-priority ${priority}">${pLabel}</div>
+      <div class="dispatch-order">
+        <div class="dispatch-order-id">${o.id}</div>
+        <div class="dispatch-customer">${o.name} · +91 ${o.phone}</div>
+        <div class="dispatch-address">${o.address}, ${o.city}, ${o.state} – ${o.pincode}</div>
+      </div>
+      <div class="dispatch-items-info">
+        <strong>Items</strong>${o.items}
+      </div>
+      <div class="dispatch-amount">₹${formatINR(o.total)}</div>
+      <div class="dispatch-actions">
+        <button class="tbl-btn primary" onclick="changeStatus('${o.id}','shipped')">Mark Shipped</button>
+        <button class="tbl-btn" onclick="openOrderModal('${o.id}')">Details</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function renderCustomers(filter='') {
+  const orders = getOrders();
+  // Build unique customers map
+  const map = {};
+  orders.forEach(o => {
+    if (!map[o.email]) {
+      map[o.email] = { name: o.name, email: o.email, phone: o.phone, city: o.city, orders: 0, spent: 0 };
+    }
+    map[o.email].orders++;
+    map[o.email].spent += o.total;
+  });
+
+  let customers = Object.values(map);
+  if (filter) {
+    const q = filter.toLowerCase();
+    customers = customers.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.email.toLowerCase().includes(q) ||
+      c.city.toLowerCase().includes(q)
+    );
+  }
+  customers.sort((a,b) => b.spent - a.spent);
+
+  const grid  = document.getElementById('customerGrid');
+  const empty = document.getElementById('customersEmpty');
+  grid.innerHTML = '';
+
+  if (customers.length === 0) {
+    empty.style.display = 'block';
+    grid.style.display  = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.style.display  = 'grid';
+
+  customers.forEach(c => {
+    const initials = c.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const div = document.createElement('div');
+    div.className = 'customer-card';
+    div.innerHTML = `
+      <div class="cc-top">
+        <div class="cc-avatar">${initials}</div>
+        <div>
+          <div class="cc-name">${c.name}</div>
+          <div class="cc-email">${c.email}</div>
+          <div class="cc-phone">+91 ${c.phone}</div>
+        </div>
+      </div>
+      <div class="cc-city">📍 ${c.city}</div>
+      <div class="cc-stats" style="margin-top:14px;">
+        <div class="cc-stat">
+          <span class="cc-stat-val">${c.orders}</span>
+          <span class="cc-stat-label">Orders</span>
+        </div>
+        <div class="cc-stat">
+          <span class="cc-stat-val">₹${formatINR(c.spent)}</span>
+          <span class="cc-stat-label">Total Spent</span>
+        </div>
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+function renderRevenue(orders) {
+  const gross = orders.reduce((s,o)=>s+o.total, 0);
+  const gst   = orders.reduce((s,o)=>s+o.gst, 0);
+  const aov   = orders.length ? Math.round(gross/orders.length) : 0;
+
+  document.getElementById('revGross').textContent = '₹' + formatINR(gross);
+  document.getElementById('revAOV').textContent   = '₹' + formatINR(aov);
+  document.getElementById('revGST').textContent   = '₹' + formatINR(gst);
+  document.getElementById('revNet').textContent   = '₹' + formatINR(gross - gst);
+
+  // Weekly bars (last 8 weeks)
+  const weeks = {};
+  const now = Date.now();
+  for (let i=7; i>=0; i--) {
+    const label = 'W' + (i===0?'0':(i));
+    weeks[label] = { label: i===0?'Now':'W-'+i, rev: 0 };
+  }
+  orders.forEach(o => {
+    const weeksAgo = Math.floor((now - new Date(o.date)) / (7*24*3600000));
+    if (weeksAgo < 8) {
+      const k = 'W' + weeksAgo;
+      if (weeks[k]) weeks[k].rev += o.total;
+    }
+  });
+
+  const vals   = Object.values(weeks).reverse();
+  const maxRev = Math.max(...vals.map(v=>v.rev), 1);
+  const chart  = document.getElementById('revenueChart');
+  chart.innerHTML = '';
+  vals.forEach(w => {
+    const pct = Math.round((w.rev / maxRev) * 100);
+    const div = document.createElement('div');
+    div.className = 'bar-wrap';
+    div.innerHTML = `<div class="bar" style="height:${pct}%" title="₹${formatINR(w.rev)}"></div><span class="bar-label">${w.label}</span>`;
+    chart.appendChild(div);
+  });
+
+  // Top products
+  const prodMap = {};
+  orders.forEach(o => {
+    o.items.split(',').forEach(item => {
+      const name = item.split('(')[0].trim().split('×')[0].trim();
+      if (!prodMap[name]) prodMap[name] = 0;
+      const qty  = parseInt(item.match(/×\s*(\d+)/) ? item.match(/×\s*(\d+)/)[1] : '1');
+      prodMap[name] += o.total / o.items.split(',').length;
+    });
+  });
+  const sorted = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const tp = document.getElementById('topProducts');
+  tp.innerHTML = '';
+  sorted.forEach(([name, rev], i) => {
+    tp.innerHTML += `
+      <div class="top-product-row">
+        <span class="tp-rank">${i+1}</span>
+        <span class="tp-name">${name}</span>
+        <span class="tp-rev">₹${formatINR(Math.round(rev))}</span>
+      </div>`;
+  });
+  if (!sorted.length) tp.innerHTML = '<div style="color:var(--gray);font-size:11px;padding:20px 0;text-align:center;">No data yet</div>';
+}
+
+
+/* ── NAVIGATION ──────────────────────────────────────────── */
+
+const VIEW_TITLES = {
+  overview:  ['Overview',       'Welcome back, Arun'],
+  orders:    ['All Orders',     'Manage and update order status'],
+  dispatch:  ['Dispatch Queue', 'Orders packed and ready to ship'],
+  products:  ['Products',       'Manage catalog — updates push live to index.html'],
+  customers: ['Customers',      'All buyers across all orders'],
+  revenue:   ['Revenue',        'Earnings breakdown and trends'],
+};
+
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + name + "'"))
+      n.classList.add('active');
+  });
+  const [title, sub] = VIEW_TITLES[name] || [name, ''];
+  document.getElementById('viewTitle').textContent    = title;
+  document.getElementById('viewSubtitle').textContent = sub;
+}
+
+
+/* ── FILTERING / SEARCH ──────────────────────────────────── */
+
+function filterOrders(status, btn) {
+  currentFilter = status;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderAllOrders(status);
+}
+
+function globalSearchFn(q) {
+  if (!q) { renderAllOrders(currentFilter); return; }
+  const lq = q.toLowerCase();
+  let orders = getOrders().filter(o =>
+    o.id.toLowerCase().includes(lq) ||
+    o.name.toLowerCase().includes(lq) ||
+    o.phone.includes(lq) ||
+    o.email.toLowerCase().includes(lq) ||
+    o.city.toLowerCase().includes(lq) ||
+    o.items.toLowerCase().includes(lq)
+  );
+  const tbody = document.getElementById('allOrdersTbody');
+  tbody.innerHTML = '';
+  orders.forEach(o => renderOrderRow(o, tbody));
+  switchView('orders');
+}
+
+function searchCustomers(q) {
+  renderCustomers(q);
+}
+
+
+/* ── ORDER MODAL ─────────────────────────────────────────── */
+
+function openOrderModal(orderId) {
+  const order = getOrders().find(o => o.id === orderId);
+  if (!order) return;
+
+  document.getElementById('modalOrderId').textContent = order.id;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="detail-row"><span class="detail-key">Customer</span><span class="detail-val">${order.name}</span></div>
+    <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val">${order.email}</span></div>
+    <div class="detail-row"><span class="detail-key">Mobile</span><span class="detail-val">+91 ${order.phone}</span></div>
+    <div class="detail-row"><span class="detail-key">Address</span><span class="detail-val" style="text-align:right;max-width:280px;">${order.address}<br>${order.city}, ${order.state} – ${order.pincode}</span></div>
+    <div class="detail-row"><span class="detail-key">Items Ordered</span><span class="detail-val" style="text-align:right;max-width:280px;">${order.items}</span></div>
+    <div class="detail-row"><span class="detail-key">Subtotal</span><span class="detail-val">₹${formatINR(order.subtotal)}</span></div>
+    <div class="detail-row"><span class="detail-key">GST (18%)</span><span class="detail-val">₹${formatINR(order.gst)}</span></div>
+    <div class="detail-row"><span class="detail-key">Delivery</span><span class="detail-val">${order.delivery > 0 ? '₹'+order.delivery : 'Free'}</span></div>
+    <div class="detail-row"><span class="detail-key">Total Paid</span><span class="detail-val green">₹${formatINR(order.total)}</span></div>
+    <div class="detail-row"><span class="detail-key">Payment</span><span class="detail-val">${order.method.toUpperCase()}${order.paymentId ? ' · '+order.paymentId : ''}</span></div>
+    <div class="detail-row"><span class="detail-key">BASH Points</span><span class="detail-val">+${order.points} pts earned</span></div>
+    <div class="detail-row"><span class="detail-key">Order Date</span><span class="detail-val">${formatDate(order.date)}</span></div>
+    <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val">${statusBadgeHTML(order.id + '-modal', order.status)}</span></div>
+    <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="tbl-btn" style="flex:1;" onclick="openInvoice('${order.id}');closeOrderModal()">🧾 Invoice</button>
+      <button class="tbl-btn primary" style="flex:1;" onclick="changeStatus('${order.id}','shipped');closeOrderModal()">Mark as Shipped</button>
+      <button class="tbl-btn" style="flex:1;" onclick="changeStatus('${order.id}','delivered');closeOrderModal()">Mark Delivered</button>
+    </div>
+  `;
+  document.getElementById('orderModal').classList.add('open');
+}
+
+function closeOrderModal() {
+  document.getElementById('orderModal').classList.remove('open');
+}
+
+
+/* ── BULK ACTIONS ────────────────────────────────────────── */
+
+function markAllShipped() {
+  const orders = getOrders();
+  let count = 0;
+  orders.forEach(o => { if (o.status === 'processing') { o.status = 'shipped'; count++; } });
+  if (count === 0) { toast('No orders in processing state'); return; }
+  saveOrders(orders);
+  toast(`✓ ${count} order${count>1?'s':''} marked as Shipped`);
+  loadDashboard();
+}
+
+
+/* ── EXPORT CSV ──────────────────────────────────────────── */
+
+function exportOrders() {
+  const orders = getOrders();
+  if (!orders.length) { toast('No orders to export'); return; }
+
+  const headers = ['Order ID','Name','Email','Phone','City','State','Pincode','Items','Subtotal','GST','Delivery','Total','Payment','Status','Date'];
+  const rows = orders.map(o => [
+    o.id, o.name, o.email, o.phone, o.city, o.state, o.pincode,
+    `"${o.items}"`, o.subtotal, o.gst, o.delivery, o.total,
+    o.method.toUpperCase(), o.status,
+    new Date(o.date).toLocaleDateString('en-IN')
+  ]);
+
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `bash-orders-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✓ CSV exported successfully');
+}
+
+
+/* ── TOAST ───────────────────────────────────────────────── */
+
+function toast(msg) {
+  const t = document.getElementById('adminToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+
+
+document.getElementById('loginEmail').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginPassword').focus();
+});
+
+/* ════════════════════════════════════════════════════════
+   PRODUCT CATALOG MANAGEMENT
+   ════════════════════════════════════════════════════════ */
+
+const CATALOG_KEY = 'bash_catalog';
+let editingCatalog = null;
+let editingProductId = null;
+
+const DEFAULT_CATALOG = {
+  hero: 'p001',
+  products: [
+    {
+      id:'p001', name:'Void Oversized Hoodie', brand:'Bash / Hoodies',
+      category:'Hoodies', price:3499, oldPrice:4199,
+      badge:'drop', badgeText:'New Drop',
+      description:'The Void Oversized Hoodie is built from a heavyweight 500gsm French terry cotton, made in Tirupur. Extreme dropped shoulders, boxy silhouette, rubberized BASH chest logo.',
+      materials:'100% Combed Cotton, 500gsm French Terry · Machine wash cold, inside out · Do not bleach',
+      image:'https://images.unsplash.com/photo-1556821840-3a63f15732ce?auto=format&fit=crop&w=900&q=80',
+      gallery:[
+        'https://images.unsplash.com/photo-1556821840-3a63f15732ce?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1516762775605-a1e7f5c5fb52?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1529139574466-a303027814a1?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=900&q=80',
+      ],
+      colors:[{name:'Void Black',hex:'#1a1a1a'},{name:'Smoked Khaki',hex:'#2c2318'},{name:'Midnight Blue',hex:'#1c1c2e'},{name:'Burnt Red',hex:'#3a1a1a'}],
+      sizes:['XS','S','M','L','XL','2XL'], unavailableSizes:['XS'],
+      inStock:true, rating:4.8, reviewCount:124, dropLabel:'Drop #026',
+    },
+    {
+      id:'p002', name:'Dead Drop Heavy Tee', brand:'Bash / Tees',
+      category:'Tees', price:1299, oldPrice:null,
+      badge:'new', badgeText:'New',
+      description:'Oversized heavyweight tee in 280gsm single-jersey cotton. Boxy cut, dropped shoulders, printed BASH wordmark on chest.',
+      materials:'100% Combed Cotton 280gsm · Cold wash · Shade dry',
+      image:'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+      gallery:[
+        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1571945153237-4929e783af4a?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1523381294911-8d3cead13475?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=900&q=80',
+      ],
+      colors:[{name:'Off-White',hex:'#e8e0d0'},{name:'Void Black',hex:'#1a1a1a'},{name:'Washed Grey',hex:'#555'}],
+      sizes:['XS','S','M','L','XL','2XL'], unavailableSizes:[],
+      inStock:true, rating:4.7, reviewCount:88, dropLabel:'Drop #026',
+    },
+    {
+      id:'p003', name:'Noise Baggy Cargo', brand:'Bash / Cargos',
+      category:'Cargos', price:2799, oldPrice:3199,
+      badge:'', badgeText:'',
+      description:'Wide-leg baggy cargo with 8 functional pockets, elasticated waist, and tapered ankle. Made in Tirupur from 340gsm cotton twill.',
+      materials:'100% Cotton Twill, 340gsm · Cold wash · Iron low heat',
+      image:'https://images.unsplash.com/photo-1594938298603-c8148c4b4685?auto=format&fit=crop&w=900&q=80',
+      gallery:[
+        'https://images.unsplash.com/photo-1594938298603-c8148c4b4685?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1617114191827-5b83d3e10b32?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1602810319250-a663f0af2f75?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?auto=format&fit=crop&w=900&q=80',
+      ],
+      colors:[{name:'Olive',hex:'#4a4a30'},{name:'Khaki',hex:'#8b7355'},{name:'Void Black',hex:'#1a1a1a'}],
+      sizes:['28','30','32','34','36'], unavailableSizes:[],
+      inStock:true, rating:4.6, reviewCount:61, dropLabel:'Drop #026',
+    },
+    {
+      id:'p004', name:'Raw Edge Acid Hoodie', brand:'Bash / Hoodies',
+      category:'Hoodies', price:3999, oldPrice:null,
+      badge:'sold', badgeText:'Almost Gone',
+      description:'Acid-washed 500gsm French terry hoodie with raw-edge hem and cuffs. Each piece comes out slightly different.',
+      materials:'100% Combed Cotton, 500gsm · Cold wash · Do not bleach · Shade dry',
+      image:'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=900&q=80',
+      gallery:[
+        'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1556821840-3a63f15732ce?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1516762775605-a1e7f5c5fb52?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1529139574466-a303027814a1?auto=format&fit=crop&w=900&q=80',
+      ],
+      colors:[{name:'Acid Olive',hex:'#3a3a20'},{name:'Acid Black',hex:'#222'}],
+      sizes:['S','M','L','XL'], unavailableSizes:['XL'],
+      inStock:true, rating:4.9, reviewCount:43, dropLabel:'Drop #025',
+    },
+  ]
+};
+
+function getAdminCatalog() {
+  try { const s=localStorage.getItem(CATALOG_KEY); if(s) return JSON.parse(s); } catch {}
+  return JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+}
+function saveAllProducts() {
+  if (!editingCatalog) editingCatalog = getAdminCatalog();
+  localStorage.setItem(CATALOG_KEY, JSON.stringify(editingCatalog));
+  toast('✓ Catalog saved — store updates immediately in this browser');
+  renderProductsView();
+}
+function resetCatalog() {
+  if (!confirm('Reset all products to defaults?')) return;
+  editingCatalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+  localStorage.setItem(CATALOG_KEY, JSON.stringify(editingCatalog));
+  toast('↺ Catalog reset to defaults');
+  renderProductsView();
+}
+
+function renderProductsView() {
+  editingCatalog = getAdminCatalog();
+  const grid = document.getElementById('productsAdminGrid');
+  const heroSel = document.getElementById('heroSelector');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const badgeColors = { drop:'var(--red)', new:'var(--orange)', sold:'var(--gray)', '':'transparent' };
+
+  editingCatalog.products.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'product-admin-card';
+    div.innerHTML = `
+      <div class="product-thumb-wrap">
+        ${p.image ? `<img src="${p.image}" alt="${p.name}" onerror="this.style.opacity='0.1'">` : '<div class="product-thumb-placeholder">📦</div>'}
+      </div>
+      <div class="product-admin-info">
+        <div class="product-admin-brand">${p.brand}</div>
+        <div class="product-admin-name">${p.name}</div>
+        <div class="product-admin-price">
+          ${p.oldPrice ? `<span class="old">₹${Number(p.oldPrice).toLocaleString('en-IN')}</span> ` : ''}
+          ₹${Number(p.price).toLocaleString('en-IN')}
+        </div>
+        <div class="product-admin-meta">
+          ${p.badge ? `<span class="product-meta-chip" style="color:${badgeColors[p.badge]||'#888'};border-color:${badgeColors[p.badge]||'#888'}40;">${p.badgeText}</span>` : ''}
+          <span class="product-meta-chip">${(p.sizes||[]).length} sizes</span>
+          <span class="product-meta-chip">${(p.colors||[]).length} colors</span>
+          <span class="product-meta-chip" style="color:var(--green-light)">★ ${p.rating}</span>
+        </div>
+        <div class="product-admin-actions">
+          <button class="tbl-btn primary" onclick="openProdModal('${p.id}')">Edit</button>
+          <button class="tbl-btn" onclick="toast('Open index.html to preview live')">Preview</button>
+        </div>
+      </div>`;
+    grid.appendChild(div);
+  });
+
+  if (heroSel) {
+    heroSel.innerHTML = '';
+    editingCatalog.products.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-tab' + (editingCatalog.hero === p.id ? ' active' : '');
+      btn.textContent = p.name;
+      btn.onclick = () => {
+        editingCatalog.hero = p.id;
+        document.querySelectorAll('#heroSelector .filter-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        toast('Hero set to ' + p.name + ' · Click Save & Push to apply');
+      };
+      heroSel.appendChild(btn);
+    });
+  }
+}
+
+function openProdModal(productId) {
+  editingCatalog = getAdminCatalog();
+  editingProductId = productId;
+  const p = editingCatalog.products.find(x => x.id === productId);
+  if (!p) return;
+  document.getElementById('prodModalTitle').textContent = 'Edit — ' + p.name;
+
+  const gSlots = (p.gallery || [p.image,'','','','']).slice(0,5).map((url,i) => `
+    <div class="gallery-slot-edit">
+      <span class="gallery-slot-num">0${i+1}</span>
+      ${url ? `<img src="${url}" alt="" onerror="this.style.display='none'">` : '<div class="gallery-slot-placeholder">+</div>'}
+    </div>`).join('');
+
+  document.getElementById('prodModalBody').innerHTML = `
+    <div class="edit-row">
+      <div class="edit-field"><label class="edit-label">Product Name *</label><input class="edit-input" id="ei-name" value="${p.name}"></div>
+      <div class="edit-field"><label class="edit-label">Brand / Category</label><input class="edit-input" id="ei-brand" value="${p.brand}"></div>
+    </div>
+    <div class="edit-row">
+      <div class="edit-field"><label class="edit-label">Selling Price (₹)</label><input class="edit-input" id="ei-price" type="number" value="${p.price}"></div>
+      <div class="edit-field"><label class="edit-label">Original Price (₹) — blank = no strikethrough</label><input class="edit-input" id="ei-oldprice" type="number" value="${p.oldPrice||''}"></div>
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Badge</label>
+      <div class="badge-options">
+        ${[['','None'],['new','New'],['drop','New Drop'],['sold','Almost Gone']].map(([v,l])=>
+          `<button type="button" class="badge-option${p.badge===v?' selected':''}" onclick="selBadge(this,'${v}','${l}')">${l}</button>`
+        ).join('')}
+      </div>
+      <input type="hidden" id="ei-badge" value="${p.badge}">
+      <input type="hidden" id="ei-badgetext" value="${p.badgeText}">
+    </div>
+    <div class="edit-row">
+      <div class="edit-field"><label class="edit-label">Drop Label</label><input class="edit-input" id="ei-droplabel" value="${p.dropLabel||'Drop #026'}"></div>
+      <div class="edit-field"><label class="edit-label">Sizes (comma-separated)</label><input class="edit-input" id="ei-sizes" value="${(p.sizes||[]).join(',')}"></div>
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Unavailable Sizes (crossed out)</label>
+      <input class="edit-input" id="ei-unavail" value="${(p.unavailableSizes||[]).join(',')}">
+      <div class="edit-hint">e.g. <code>XS,2XL</code></div>
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Colours (Name:HexCode — one per line)</label>
+      <textarea class="edit-textarea" id="ei-colors">${(p.colors||[]).map(c=>c.name+':'+c.hex).join('\n')}</textarea>
+      <div class="edit-hint">e.g. <code>Void Black:#1a1a1a</code></div>
+    </div>
+    <div class="edit-field"><label class="edit-label">Description</label><textarea class="edit-textarea" id="ei-desc">${p.description||''}</textarea></div>
+    <div class="edit-field"><label class="edit-label">Materials & Care (· as separator)</label><textarea class="edit-textarea" id="ei-materials" style="min-height:52px;">${p.materials||''}</textarea></div>
+    <div class="edit-field">
+      <label class="edit-label">Main Image URL</label>
+      <div class="img-preview-row">
+        <div class="img-preview-box"><img id="ei-img-preview" src="${p.image||''}" alt="" onerror="this.style.opacity='0.1'"></div>
+        <div style="flex:1;">
+          <input class="edit-input" id="ei-image" value="${p.image||''}" oninput="document.getElementById('ei-img-preview').src=this.value" placeholder="https://your-image-url.com/product.jpg">
+          <div class="edit-hint">Paste any direct image URL — Unsplash, Cloudinary, S3, etc.</div>
+        </div>
+      </div>
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">Gallery (5 image slots — shown in product page)</label>
+      <div class="gallery-grid-edit">${gSlots}</div>
+      ${(p.gallery||[p.image,'','','','']).slice(0,5).map((url,i)=>`
+      <div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
+        <span style="font-size:9px;letter-spacing:0.15em;color:var(--gray);width:40px;flex-shrink:0;">IMG ${i+1}</span>
+        <input class="edit-input" id="ei-g${i}" value="${url||''}" oninput="upGP(${i},this.value)" placeholder="Image ${i+1} URL" style="margin-bottom:0;">
+      </div>`).join('')}
+    </div>`;
+  document.getElementById('prodModalOverlay').classList.add('open');
+}
+
+function selBadge(btn, val, lbl) {
+  document.querySelectorAll('.badge-option').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('ei-badge').value = val;
+  document.getElementById('ei-badgetext').value = lbl;
+}
+function upGP(i, url) {
+  const slots = document.querySelectorAll('.gallery-slot-edit');
+  if (!slots[i]) return;
+  slots[i].innerHTML = `<span class="gallery-slot-num">0${i+1}</span>` +
+    (url ? `<img src="${url}" onerror="this.style.display='none'">` : '<div class="gallery-slot-placeholder">+</div>');
+}
+function saveProdFromModal() {
+  const p = editingCatalog.products.find(x => x.id === editingProductId);
+  if (!p) return;
+  p.name       = document.getElementById('ei-name').value.trim()||p.name;
+  p.brand      = document.getElementById('ei-brand').value.trim()||p.brand;
+  p.price      = parseInt(document.getElementById('ei-price').value)||p.price;
+  p.oldPrice   = parseInt(document.getElementById('ei-oldprice').value)||null;
+  p.badge      = document.getElementById('ei-badge').value;
+  p.badgeText  = document.getElementById('ei-badgetext').value;
+  p.dropLabel  = document.getElementById('ei-droplabel').value.trim();
+  p.description= document.getElementById('ei-desc').value.trim();
+  p.materials  = document.getElementById('ei-materials').value.trim();
+  p.image      = document.getElementById('ei-image').value.trim();
+  p.sizes      = document.getElementById('ei-sizes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  p.unavailableSizes = document.getElementById('ei-unavail').value.split(',').map(s=>s.trim()).filter(Boolean);
+  p.colors     = document.getElementById('ei-colors').value.split('\n').filter(l=>l.trim()).map(l=>{ const pts=l.split(':'); return {name:pts[0].trim(),hex:(pts[1]||'#333').trim()}; });
+  p.gallery    = [0,1,2,3,4].map(i=>{ const el=document.getElementById('ei-g'+i); return el?el.value.trim():''; }).filter(Boolean);
+  if (!p.gallery.length && p.image) p.gallery=[p.image];
+  closeProdModal();
+  toast('✓ ' + p.name + ' saved · Click "Save & Push to Store" to apply');
+  renderProductsView();
+}
+function closeProdModal() { document.getElementById('prodModalOverlay').classList.remove('open'); }
+
+
+/* ════════════════════════════════════════════════════════
+   INVOICE SYSTEM
+   ════════════════════════════════════════════════════════ */
+
+function openInvoice(orderId) {
+  const order = getOrders().find(o=>o.id===orderId);
+  if (!order) return;
+  renderInvoice(order);
+  document.getElementById('invoiceOverlay').classList.add('open');
+}
+function closeInvoice() { document.getElementById('invoiceOverlay').classList.remove('open'); }
+
+function renderInvoice(order) {
+  const invNum  = 'INV-' + order.id.replace('BASH-','');
+  const oDate   = new Date(order.date).toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'});
+  const sColor  = {pending:'#e8703a',processing:'#4a90d9',shipped:'#e8703a',delivered:'#4caf85',cancelled:'#d63c2f'};
+  const mLabel  = {razorpay:'Razorpay Online',upi:'UPI Payment',card:'Card Payment',cod:'Cash on Delivery',online:'Online Payment'};
+
+  const lines   = order.items.split(',').map(s=>s.trim()).filter(Boolean);
+  const rows    = lines.map((line,i) => {
+    const qty  = parseInt((line.match(/×\s*(\d+)/)||[,'1'])[1]);
+    const name = line.split('(')[0].replace(/×\s*\d+/,'').trim();
+    const vrnt = (line.match(/\(([^)]+)\)/)||['',''])[1];
+    const unit = Math.round(order.subtotal / lines.length / qty);
+    const tot  = unit * qty;
+    return `<tr>
+      <td style="width:32px;text-align:center;color:#999;padding:12px 14px;">${i+1}</td>
+      <td style="padding:12px 14px;"><div style="font-size:12px;font-weight:500;color:#111;margin-bottom:2px;">${name}</div>${vrnt?`<div style="font-size:9px;color:#888;letter-spacing:0.1em;text-transform:uppercase;">${vrnt}</div>`:''}</td>
+      <td style="text-align:center;padding:12px 14px;">${qty}</td>
+      <td style="text-align:right;padding:12px 14px;">₹${unit.toLocaleString('en-IN')}</td>
+      <td style="text-align:right;padding:12px 14px;font-weight:500;">₹${tot.toLocaleString('en-IN')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('invoiceDoc').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:0.05em;color:#111;line-height:1;">BA<span style="color:#d63c2f;">SH</span></div>
+        <div style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#888;margin-top:4px;">Oversized Indian Streetwear · Made in Tirupur</div>
+        <div style="margin-top:12px;font-size:10px;color:#666;line-height:1.7;letter-spacing:0.04em;font-family:'DM Mono',monospace;">BASH Clothing<br>knittclothing@gmail.com<br>GSTIN: 33XXXXX0000X1ZX</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.08em;color:#111;">INVOICE</div>
+        <div style="font-size:11px;letter-spacing:0.12em;color:#555;margin-top:4px;font-family:'DM Mono',monospace;">${invNum}</div>
+        <div style="font-size:10px;letter-spacing:0.1em;color:#888;margin-top:2px;font-family:'DM Mono',monospace;">Date: ${oDate}</div>
+        <div style="margin-top:10px;"><span style="display:inline-block;padding:4px 12px;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;background:${(sColor[order.status]||'#888')}22;color:${sColor[order.status]||'#888'};border:1px solid ${(sColor[order.status]||'#888')}44;font-family:'DM Mono',monospace;">${order.status.toUpperCase()}</span></div>
+      </div>
+    </div>
+    <hr style="border:none;border-top:2px solid #111;margin:0 0 24px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px;">
+      <div>
+        <div style="font-size:8px;letter-spacing:0.28em;text-transform:uppercase;color:#888;margin-bottom:8px;font-family:'DM Mono',monospace;">Bill To / Ship To</div>
+        <div style="font-size:14px;font-weight:500;color:#111;margin-bottom:3px;font-family:'DM Mono',monospace;">${order.name}</div>
+        <div style="font-size:11px;color:#444;letter-spacing:0.04em;line-height:1.9;font-family:'DM Mono',monospace;">${order.address}<br>${order.city}, ${order.state} — ${order.pincode}<br>India<br>+91 ${order.phone}<br>${order.email}</div>
+      </div>
+      <div>
+        <div style="font-size:8px;letter-spacing:0.28em;text-transform:uppercase;color:#888;margin-bottom:8px;font-family:'DM Mono',monospace;">Order Details</div>
+        <div style="font-size:10px;color:#444;letter-spacing:0.04em;line-height:2.1;font-family:'DM Mono',monospace;">
+          <strong style="color:#111;">Order ID:</strong> ${order.id}<br>
+          <strong style="color:#111;">Invoice:</strong> ${invNum}<br>
+          <strong style="color:#111;">Date:</strong> ${oDate}<br>
+          <strong style="color:#111;">Payment:</strong> ${mLabel[order.method]||order.method.toUpperCase()}<br>
+          ${order.paymentId?`<strong style="color:#111;">Txn ID:</strong> ${order.paymentId}<br>`:''}
+          <strong style="color:#111;">BASH Points:</strong> +${order.points||0} pts
+        </div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#111;color:#fff;">
+          <th style="width:32px;padding:11px 14px;text-align:left;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;font-weight:400;font-family:'DM Mono',monospace;">#</th>
+          <th style="padding:11px 14px;text-align:left;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;font-weight:400;font-family:'DM Mono',monospace;">Item Description</th>
+          <th style="padding:11px 14px;text-align:center;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;font-weight:400;font-family:'DM Mono',monospace;">Qty</th>
+          <th style="padding:11px 14px;text-align:right;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;font-weight:400;font-family:'DM Mono',monospace;">Unit Price</th>
+          <th style="padding:11px 14px;text-align:right;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;font-weight:400;font-family:'DM Mono',monospace;">Amount</th>
+        </tr>
+      </thead>
+      <tbody style="font-family:'DM Mono',monospace;">${rows}</tbody>
+    </table>
+    <hr style="border:none;border-top:1px solid #e5e5e5;margin:0 0 0;">
+    <div style="display:flex;justify-content:flex-end;margin-top:4px;">
+      <div style="width:280px;">
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #efefef;font-size:11px;color:#444;font-family:'DM Mono',monospace;"><span>Subtotal</span><span style="font-weight:500;color:#111;">₹${Number(order.subtotal).toLocaleString('en-IN')}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #efefef;font-size:11px;color:#888;font-family:'DM Mono',monospace;"><span>GST @ 18% (included)</span><span>₹${Number(order.gst||0).toLocaleString('en-IN')}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #efefef;font-size:11px;font-family:'DM Mono',monospace;color:${order.delivery>0?'#444':'#2d6a4f'};"><span>Delivery</span><span>${order.delivery>0?'₹'+order.delivery:'FREE'}</span></div>
+        ${order.discount>0?`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #efefef;font-size:11px;color:#e8703a;font-family:'DM Mono',monospace;"><span>Discount</span><span>−₹${Number(order.discount).toLocaleString('en-IN')}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;padding:14px 0;border-top:2px solid #111;margin-top:4px;font-family:'DM Mono',monospace;">
+          <span style="font-size:14px;font-weight:500;color:#111;">Total Paid</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:#111;">₹${Number(order.total).toLocaleString('en-IN')}</span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:40px;padding-top:20px;border-top:1px solid #e5e5e5;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:20px;">
+        <div>
+          <div style="font-size:8px;letter-spacing:0.25em;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:'DM Mono',monospace;">Payment Method</div>
+          <div style="font-size:10px;color:#444;letter-spacing:0.05em;line-height:1.7;font-family:'DM Mono',monospace;"><strong style="color:#111;">${mLabel[order.method]||order.method.toUpperCase()}</strong><br>${order.paymentId?'Txn: '+order.paymentId:'Payment at delivery'}</div>
+        </div>
+        <div>
+          <div style="font-size:8px;letter-spacing:0.25em;text-transform:uppercase;color:#888;margin-bottom:6px;font-family:'DM Mono',monospace;">Delivery</div>
+          <div style="font-size:10px;color:#444;letter-spacing:0.05em;line-height:1.7;font-family:'DM Mono',monospace;"><strong style="color:#111;">${order.delivery>0?'Express':'Standard — Delhivery / Blue Dart'}</strong><br>4–7 business days from dispatch</div>
+        </div>
+      </div>
+      <div style="padding:14px 16px;background:#fff3f3;border-left:3px solid #d63c2f;font-size:9px;letter-spacing:0.06em;line-height:1.7;color:#555;font-family:'DM Mono',monospace;">
+        <strong style="color:#d63c2f;">⚠ No Return & No Refund Policy:</strong> All BASH sales are final. Damaged items must be reported within 24 hours with unboxing video. Fraudulent chargebacks will result in legal action under IPC Section 420.
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:32px;font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:0.3em;color:#ddd;text-transform:uppercase;">Thank you for your order · BASH · knittclothing@gmail.com</div>
+  `;
+}
+function downloadInvoicePDF() { toast('Use browser Print → Save as PDF'); setTimeout(()=>window.print(),400); }
+
+
+/* ─── SUPABASE SYNC FOR ADMIN ─────────────────────────── */
+
+const ADMIN_SUPABASE_URL  = 'https://pcyewovpfujzaynphvzj.supabase.co';
+const ADMIN_SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY'; // ← paste your anon key here
+let _adminSb = null;
+
+function getAdminSB() {
+  if (!_adminSb && ADMIN_SUPABASE_ANON !== 'YOUR_SUPABASE_ANON_KEY' && typeof supabase !== 'undefined') {
+    _adminSb = supabase.createClient(ADMIN_SUPABASE_URL, ADMIN_SUPABASE_ANON);
+  }
+  return _adminSb;
+}
+
+async function syncFromSupabase() {
+  const sb = getAdminSB();
+  if (!sb) {
+    toast('⚠ Add your Supabase anon key to admin.html to enable DB sync');
+    return;
+  }
+  toast('⟳ Syncing from Supabase...');
+  try {
+    // Fetch orders from Supabase
+    const { data: sbOrders, error: oErr } = await sb.from('orders').select('*').order('created_at', { ascending: false });
+    if (oErr) throw oErr;
+
+    if (sbOrders && sbOrders.length) {
+      // Merge with local — Supabase wins on conflict
+      const local = getOrders();
+      const localIds = new Set(local.map(o => o.id));
+      const newOrders = sbOrders.map(o => ({
+        id: o.id, name: o.name, email: o.email, phone: o.phone,
+        address: o.address, city: o.city, state: o.state, pincode: o.pincode,
+        items: o.items, subtotal: o.subtotal, gst: o.gst,
+        delivery: o.delivery, discount: o.discount || 0,
+        total: o.total, method: o.method, paymentId: o.payment_id,
+        points: o.points, status: o.status,
+        date: o.created_at,
+      }));
+      // Merge: Supabase records override local
+      const merged = [...newOrders];
+      local.forEach(lo => { if (!merged.find(m => m.id === lo.id)) merged.push(lo); });
+      saveOrders(merged);
+      toast('✓ Synced ' + sbOrders.length + ' orders from Supabase');
+    } else {
+      toast('No orders in Supabase yet');
+    }
+    loadDashboard();
+  } catch(e) {
+    toast('✗ Sync error: ' + e.message);
+  }
+}
+
+</script>
+</body>
+</html>
